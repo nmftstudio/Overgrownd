@@ -1,0 +1,1725 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OVERGROWND - Ultimate Evolution Simulator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+
+        :root {
+            --primary: #10b981;
+            --primary-dark: #059669;
+            --primary-light: #34d399;
+            --secondary: #3b82f6;
+            --accent: #f59e0b;
+            --danger: #ef4444;
+            --bg-dark: #0f172a;
+            --bg-panel: rgba(15, 23, 42, 0.95);
+            --border: rgba(255, 255, 255, 0.1);
+            --text: #f8fafc;
+            --text-dim: #94a3b8;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text);
+            overflow: hidden;
+            user-select: none;
+        }
+
+        #gameCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            cursor: grab;
+        }
+
+        #gameCanvas:active {
+            cursor: grabbing;
+        }
+
+        /* HUD */
+        #hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        .hud-panel {
+            background: var(--bg-panel);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            pointer-events: auto;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+
+        /* Top Bar - Solo recursos */
+        #topBar {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        #resources {
+            display: flex;
+            gap: 24px;
+            align-items: center;
+        }
+
+        .resource {
+            display: flex;
+            flex-direction: column;
+            min-width: 80px;
+        }
+
+        .resource-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-dim);
+            margin-bottom: 4px;
+        }
+
+        .resource-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .resource-value.coins { color: var(--accent); }
+        .resource-value.bio { color: var(--primary); }
+        .resource-value.energy { color: var(--secondary); }
+
+        /* Sidebar con iconos */
+        #sidebar {
+            position: fixed;
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 200;
+        }
+
+        .sidebar-icon {
+            width: 56px;
+            height: 56px;
+            background: var(--bg-panel);
+            backdrop-filter: blur(12px);
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            pointer-events: auto;
+            position: relative;
+        }
+
+        .sidebar-icon:hover {
+            background: var(--primary);
+            border-color: var(--primary);
+            transform: scale(1.1);
+            box-shadow: 0 4px 20px rgba(16, 185, 129, 0.4);
+        }
+
+        .sidebar-icon.active {
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+
+        .sidebar-icon::before {
+            content: attr(data-label);
+            position: absolute;
+            left: 70px;
+            background: rgba(0, 0, 0, 0.95);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            border: 1px solid var(--primary);
+        }
+
+        .sidebar-icon:hover::before {
+            opacity: 1;
+        }
+
+        /* Panel desplegable */
+        .dropdown-panel {
+            position: fixed;
+            left: 96px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 320px;
+            max-height: 70vh;
+            overflow-y: auto;
+            background: var(--bg-panel);
+            backdrop-filter: blur(12px);
+            border: 2px solid var(--primary);
+            border-radius: 16px;
+            padding: 20px;
+            pointer-events: auto;
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+            display: none;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-50%) translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(-50%) translateX(0);
+            }
+        }
+
+        .dropdown-panel.active {
+            display: block;
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .panel-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .close-panel {
+            width: 32px;
+            height: 32px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 20px;
+            transition: all 0.2s;
+        }
+
+        .close-panel:hover {
+            background: var(--danger);
+            border-color: var(--danger);
+        }
+
+        .panel-section {
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+            color: var(--text-dim);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #1e40af, var(--secondary));
+        }
+
+        .btn-secondary:hover {
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn-accent {
+            background: linear-gradient(135deg, #d97706, var(--accent));
+        }
+
+        .btn-accent:hover {
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+        }
+
+        .btn-cost {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            opacity: 0.9;
+        }
+
+        /* Tech Tree */
+        .tech-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .tech-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .tech-card:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: var(--primary);
+        }
+
+        .tech-card.unlocked {
+            border-color: var(--primary);
+            background: rgba(16, 185, 129, 0.15);
+        }
+
+        .tech-card.unlocked::after {
+            content: '✓';
+            color: var(--primary);
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .tech-name {
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .tech-cost {
+            font-size: 11px;
+            color: var(--accent);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .tech-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Minimap */
+        #minimap {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 200px;
+            height: 150px;
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            pointer-events: auto;
+        }
+
+        #minimapCanvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Bottom Bar - Info */
+        #bottomBar {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 16px;
+        }
+
+        .info-pill {
+            background: var(--bg-panel);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px 16px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: var(--text-dim);
+            pointer-events: auto;
+        }
+
+        .info-label {
+            color: var(--primary);
+            margin-right: 8px;
+        }
+
+        /* Mode Selector */
+        #modeSelector {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            gap: 8px;
+        }
+
+        .mode-btn {
+            width: 48px;
+            height: 48px;
+            background: var(--bg-panel);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 20px;
+            pointer-events: auto;
+        }
+
+        .mode-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .mode-btn.active {
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+
+        /* Notifications */
+        #notifications {
+            position: absolute;
+            top: 100px;
+            right: 20px;
+            width: 300px;
+            pointer-events: none;
+        }
+
+        .notification {
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--primary);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 8px;
+            animation: slideInRight 0.3s ease;
+            font-size: 13px;
+            pointer-events: auto;
+        }
+
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(100px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .notification-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .notification-body {
+            color: var(--text-dim);
+            font-size: 12px;
+        }
+
+        /* Loading */
+        #loading {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg-dark);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            transition: opacity 0.5s;
+        }
+
+        #loading.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loading-text {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 20px;
+            letter-spacing: 2px;
+        }
+
+        .loading-bar {
+            width: 300px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .loading-progress {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary-dark), var(--primary-light));
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--primary);
+            border-radius: 3px;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+        }
+
+        .stat-card-label {
+            font-size: 11px;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+        }
+
+        .stat-card-value {
+            font-size: 20px;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+        }
+    </style>
+</head>
+<body>
+    <div id="loading">
+        <div class="loading-text">OVERGROWND</div>
+        <div class="loading-bar">
+            <div class="loading-progress" id="loadingProgress"></div>
+        </div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="hud">
+        <!-- Top Bar - Solo recursos principales -->
+        <div id="topBar">
+            <div class="hud-panel" id="resources">
+                <div class="resource">
+                    <div class="resource-label">Eco-Coins</div>
+                    <div class="resource-value coins" id="coinValue">0</div>
+                </div>
+                <div class="resource">
+                    <div class="resource-label">Biomass</div>
+                    <div class="resource-value bio" id="bioValue">0</div>
+                </div>
+                <div class="resource">
+                    <div class="resource-label">Energy</div>
+                    <div class="resource-value energy" id="energyValue">0</div>
+                </div>
+            </div>
+
+            <div id="minimap" class="hud-panel">
+                <canvas id="minimapCanvas"></canvas>
+            </div>
+        </div>
+
+        <!-- Sidebar con iconos -->
+        <div id="sidebar">
+            <div class="sidebar-icon" data-panel="actions" data-label="Actions">🌱</div>
+            <div class="sidebar-icon" data-panel="tech" data-label="Technology">🔬</div>
+            <div class="sidebar-icon" data-panel="biome" data-label="Biome Tools">🌍</div>
+            <div class="sidebar-icon" data-panel="stats" data-label="Statistics">📊</div>
+            <div class="sidebar-icon" data-panel="settings" data-label="Settings">⚙️</div>
+        </div>
+
+        <!-- Panels desplegables -->
+        <div class="dropdown-panel" id="panel-actions">
+            <div class="panel-header">
+                <div class="panel-title">Actions</div>
+                <div class="close-panel" onclick="closeAllPanels()">×</div>
+            </div>
+            <div class="panel-section">
+                <button class="btn" onclick="Game.plantSeed()" id="plantBtn">
+                    <span>🌱 Plant Seed</span>
+                    <span class="btn-cost">30</span>
+                </button>
+                <button class="btn" onclick="Game.spawnCreature()">
+                    <span>🦋 Spawn Creature</span>
+                    <span class="btn-cost">50</span>
+                </button>
+                <button class="btn btn-secondary" onclick="Game.evolve()">
+                    <span>🧬 Evolve Generation</span>
+                    <span class="btn-cost">100</span>
+                </button>
+                <button class="btn btn-accent" onclick="Game.harvest()">
+                    <span>🌾 Harvest Biomass</span>
+                    <span class="btn-cost">Free</span>
+                </button>
+            </div>
+            <div class="panel-section">
+                <div class="section-title">Quick Info</div>
+                <p style="font-size: 12px; color: var(--text-dim); line-height: 1.6;">
+                    Plant seeds to grow your ecosystem. Spawn creatures to add biodiversity. 
+                    Evolve to advance generations with improved genetics.
+                </p>
+            </div>
+        </div>
+
+        <div class="dropdown-panel" id="panel-tech">
+            <div class="panel-header">
+                <div class="panel-title">Technology Tree</div>
+                <div class="close-panel" onclick="closeAllPanels()">×</div>
+            </div>
+            <div class="panel-section">
+                <div class="section-title">Available Upgrades</div>
+                <div class="tech-grid" id="techGrid"></div>
+            </div>
+        </div>
+
+        <div class="dropdown-panel" id="panel-biome">
+            <div class="panel-header">
+                <div class="panel-title">Biome Tools</div>
+                <div class="close-panel" onclick="closeAllPanels()">×</div>
+            </div>
+            <div class="panel-section">
+                <div class="section-title">Transform</div>
+                <button class="btn" onclick="Game.changeBiome()">
+                    <span>🌦️ Change Biome</span>
+                    <span class="btn-cost">200</span>
+                </button>
+                <button class="btn btn-secondary" onclick="Game.addWater()">
+                    <span>💧 Add Water Source</span>
+                    <span class="btn-cost">80</span>
+                </button>
+                <button class="btn btn-accent" onclick="Game.addMountain()">
+                    <span>⛰️ Add Mountain</span>
+                    <span class="btn-cost">150</span>
+                </button>
+            </div>
+            <div class="panel-section">
+                <div class="section-title">Current Biome</div>
+                <p style="font-size: 14px; font-weight: 600; color: var(--primary);" id="currentBiomeName">Plains</p>
+                <p style="font-size: 12px; color: var(--text-dim); margin-top: 4px;">
+                    Growth Rate: <span id="biomeGrowth">100%</span><br>
+                    Water Modifier: <span id="biomeWater">100%</span>
+                </p>
+            </div>
+        </div>
+
+        <div class="dropdown-panel" id="panel-stats">
+            <div class="panel-header">
+                <div class="panel-title">Statistics</div>
+                <div class="close-panel" onclick="closeAllPanels()">×</div>
+            </div>
+            <div class="panel-section">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-card-label">Population</div>
+                        <div class="stat-card-value" id="popValue">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-label">Species</div>
+                        <div class="stat-card-value" id="speciesValue">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-label">Generation</div>
+                        <div class="stat-card-value" id="generationValue">1</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-label">Age (sec)</div>
+                        <div class="stat-card-value" id="ageValue">0</div>
+                    </div>
+                </div>
+            </div>
+            <div class="panel-section">
+                <div class="section-title">Ecosystem Health</div>
+                <div style="background: rgba(255,255,255,0.05); border-radius: 8px; padding: 12px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                        <span style="font-size: 12px;">Plant Diversity</span>
+                        <span style="font-size: 12px; color: var(--primary);" id="plantDiversity">0%</span>
+                    </div>
+                    <div style="height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden;">
+                        <div id="diversityBar" style="height: 100%; background: var(--primary); width: 0%; transition: width 0.3s;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="dropdown-panel" id="panel-settings">
+            <div class="panel-header">
+                <div class="panel-title">Settings</div>
+                <div class="close-panel" onclick="closeAllPanels()">×</div>
+            </div>
+            <div class="panel-section">
+                <div class="section-title">Game</div>
+                <button class="btn" onclick="Game.save(); Game.notify('Saved', 'Game saved successfully')">
+                    <span>💾 Save Game</span>
+                </button>
+                <button class="btn btn-secondary" onclick="if(confirm('Reset all progress?')) { localStorage.clear(); location.reload(); }">
+                    <span>🔄 Reset Game</span>
+                </button>
+            </div>
+            <div class="panel-section">
+                <div class="section-title">Display</div>
+                <button class="btn" onclick="Game.toggleGrid()">
+                    <span>📐 Toggle Grid</span>
+                </button>
+                <button class="btn" onclick="document.documentElement.requestFullscreen()">
+                    <span>⛶ Fullscreen</span>
+                </button>
+            </div>
+            <div class="panel-section">
+                <div class="section-title">Help</div>
+                <p style="font-size: 12px; color: var(--text-dim); line-height: 1.6;">
+                    <strong>Controls:</strong><br>
+                    • Drag to explore<br>
+                    • Mouse wheel to zoom<br>
+                    • Space: Plant seed<br>
+                    • C: Spawn creature<br>
+                    • E: Evolve<br>
+                </p>
+            </div>
+        </div>
+
+        <!-- Mode Selector -->
+        <div id="modeSelector">
+            <div class="mode-btn active" data-mode="explore" title="Explore Mode">🗺️</div>
+            <div class="mode-btn" data-mode="plant" title="Plant Mode">🌱</div>
+            <div class="mode-btn" data-mode="terraform" title="Terraform Mode">⛏️</div>
+            <div class="mode-btn" data-mode="observe" title="Observe Mode">👁️</div>
+        </div>
+
+        <!-- Bottom Info -->
+        <div id="bottomBar">
+            <div class="info-pill">
+                <span class="info-label">POS</span>
+                <span id="cameraPos">X: 0, Y: 0</span>
+            </div>
+            <div class="info-pill">
+                <span class="info-label">FPS</span>
+                <span id="fpsCounter">60</span>
+            </div>
+            <div class="info-pill">
+                <span class="info-label">BIOME</span>
+                <span id="biomeValue">Plains</span>
+            </div>
+        </div>
+
+        <div id="notifications"></div>
+    </div>
+
+    <script>
+        // ═══════════════════════════════════════════════════════════
+        // UI MANAGEMENT
+        // ═══════════════════════════════════════════════════════════
+
+        function closeAllPanels() {
+            document.querySelectorAll('.dropdown-panel').forEach(panel => {
+                panel.classList.remove('active');
+            });
+            document.querySelectorAll('.sidebar-icon').forEach(icon => {
+                icon.classList.remove('active');
+            });
+        }
+
+        // Sidebar icon clicks
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('.sidebar-icon').forEach(icon => {
+                icon.addEventListener('click', () => {
+                    const panelId = 'panel-' + icon.dataset.panel;
+                    const panel = document.getElementById(panelId);
+                    const isActive = panel.classList.contains('active');
+                    
+                    closeAllPanels();
+                    
+                    if (!isActive) {
+                        panel.classList.add('active');
+                        icon.classList.add('active');
+                    }
+                });
+            });
+
+            // Mode selector
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    Game.state.mode = btn.dataset.mode;
+                    
+                    if (btn.dataset.mode === 'explore') {
+                        Game.canvas.style.cursor = 'grab';
+                    } else {
+                        Game.canvas.style.cursor = 'crosshair';
+                    }
+                });
+            });
+
+            // Close panels on ESC
+            window.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    closeAllPanels();
+                }
+            });
+        });
+
+        // ═══════════════════════════════════════════════════════════
+        // CORE GAME ENGINE
+        // ═══════════════════════════════════════════════════════════
+
+        const Game = {
+            canvas: null,
+            ctx: null,
+            width: 0,
+            height: 0,
+            
+            worldWidth: 10000,
+            worldHeight: 3000,
+            
+            camera: {
+                x: 0,
+                y: 0,
+                targetX: 0,
+                targetY: 0,
+                zoom: 1,
+                isDragging: false,
+                dragStartX: 0,
+                dragStartY: 0
+            },
+            
+            state: {
+                coins: 100,
+                biomass: 200,
+                energy: 150,
+                generation: 1,
+                plants: [],
+                creatures: [],
+                waterSources: [],
+                structures: [],
+                technologies: new Set(),
+                currentBiome: 'plains',
+                mode: 'explore',
+                time: 0,
+                showGrid: false
+            },
+            
+            technologies: {
+                advancedPhotosynthesis: { name: 'Advanced Photosynthesis', cost: 150, unlocked: false },
+                rapidGrowth: { name: 'Rapid Growth', cost: 200, unlocked: false },
+                waterStorage: { name: 'Water Storage', cost: 180, unlocked: false },
+                symbiosis: { name: 'Symbiosis', cost: 250, unlocked: false },
+                geneticMutation: { name: 'Genetic Mutation', cost: 300, unlocked: false },
+                neuralNetwork: { name: 'Neural Network', cost: 400, unlocked: false }
+            },
+            
+            biomes: {
+                plains: { 
+                    name: 'Plains', 
+                    groundColor: '#2d5016', 
+                    skyColor: '#87CEEB',
+                    growthRate: 1.0,
+                    waterMod: 1.0
+                },
+                desert: { 
+                    name: 'Desert', 
+                    groundColor: '#c2b280', 
+                    skyColor: '#FFE4B5',
+                    growthRate: 0.6,
+                    waterMod: 0.3
+                },
+                jungle: { 
+                    name: 'Jungle', 
+                    groundColor: '#1a4d2e', 
+                    skyColor: '#B4E7CE',
+                    growthRate: 1.8,
+                    waterMod: 2.0
+                },
+                tundra: { 
+                    name: 'Tundra', 
+                    groundColor: '#d4e5f7', 
+                    skyColor: '#CAE4F7',
+                    growthRate: 0.4,
+                    waterMod: 0.5
+                }
+            },
+            
+            lastTime: 0,
+            fps: 0,
+            frameCount: 0,
+            lastFpsUpdate: 0,
+            
+            init() {
+                this.canvas = document.getElementById('gameCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                
+                this.resize();
+                window.addEventListener('resize', () => this.resize());
+                
+                this.camera.x = this.worldWidth / 2 - this.width / 2;
+                this.camera.y = this.worldHeight - this.height - 200;
+                this.camera.targetX = this.camera.x;
+                this.camera.targetY = this.camera.y;
+                
+                this.setupControls();
+                this.generateInitialWorld();
+                this.setupTechGrid();
+                
+                this.lastTime = performance.now();
+                requestAnimationFrame((t) => this.gameLoop(t));
+                
+                setTimeout(() => {
+                    document.getElementById('loading').classList.add('hidden');
+                    this.notify('Welcome to OVERGROWND', 'Build and evolve your ecosystem');
+                }, 1000);
+                
+                setInterval(() => this.save(), 30000);
+                this.load();
+                setInterval(() => this.passiveIncome(), 1000);
+            },
+            
+            resize() {
+                this.width = window.innerWidth;
+                this.height = window.innerHeight;
+                this.canvas.width = this.width;
+                this.canvas.height = this.height;
+                
+                const miniCanvas = document.getElementById('minimapCanvas');
+                miniCanvas.width = 200;
+                miniCanvas.height = 150;
+            },
+            
+            setupControls() {
+                this.canvas.addEventListener('mousedown', (e) => {
+                    if (this.state.mode === 'explore') {
+                        this.camera.isDragging = true;
+                        this.camera.dragStartX = e.clientX + this.camera.x;
+                        this.camera.dragStartY = e.clientY + this.camera.y;
+                    } else if (this.state.mode === 'plant') {
+                        this.handlePlantClick(e);
+                    }
+                });
+                
+                this.canvas.addEventListener('mousemove', (e) => {
+                    if (this.camera.isDragging) {
+                        this.camera.targetX = this.camera.dragStartX - e.clientX;
+                        this.camera.targetY = this.camera.dragStartY - e.clientY;
+                        
+                        this.camera.targetX = Math.max(0, Math.min(this.worldWidth - this.width, this.camera.targetX));
+                        this.camera.targetY = Math.max(0, Math.min(this.worldHeight - this.height, this.camera.targetY));
+                    }
+                });
+                
+                this.canvas.addEventListener('mouseup', () => {
+                    this.camera.isDragging = false;
+                });
+                
+                this.canvas.addEventListener('wheel', (e) => {
+                    e.preventDefault();
+                    const zoomSpeed = 0.1;
+                    this.camera.zoom += e.deltaY > 0 ? -zoomSpeed : zoomSpeed;
+                    this.camera.zoom = Math.max(0.5, Math.min(2, this.camera.zoom));
+                });
+                
+                window.addEventListener('keydown', (e) => {
+                    if (e.key === ' ') {
+                        e.preventDefault();
+                        this.plantSeed();
+                    } else if (e.key === 'c') {
+                        this.spawnCreature();
+                    } else if (e.key === 'e') {
+                        this.evolve();
+                    }
+                });
+            },
+            
+            generateInitialWorld() {
+                for (let i = 0; i < 50; i++) {
+                    const x = Math.random() * this.worldWidth;
+                    const y = this.worldHeight - 200 - Math.random() * 100;
+                    this.state.plants.push(new Plant(x, y, this.state.generation));
+                }
+                
+                for (let i = 0; i < 20; i++) {
+                    const x = Math.random() * this.worldWidth;
+                    const y = this.worldHeight - 300 - Math.random() * 200;
+                    this.state.creatures.push(new Creature(x, y));
+                }
+                
+                for (let i = 0; i < 10; i++) {
+                    this.state.waterSources.push({
+                        x: Math.random() * this.worldWidth,
+                        y: this.worldHeight - 150,
+                        radius: 50 + Math.random() * 100
+                    });
+                }
+            },
+            
+            setupTechGrid() {
+                const grid = document.getElementById('techGrid');
+                Object.entries(this.technologies).forEach(([key, tech]) => {
+                    const card = document.createElement('div');
+                    card.className = 'tech-card';
+                    card.innerHTML = `
+                        <div class="tech-info">
+                            <div class="tech-name">${tech.name}</div>
+                            <div class="tech-cost">${tech.cost} coins</div>
+                        </div>
+                    `;
+                    card.onclick = () => this.unlockTech(key);
+                    card.dataset.tech = key;
+                    grid.appendChild(card);
+                });
+            },
+            
+            gameLoop(timestamp) {
+                const dt = Math.min((timestamp - this.lastTime) / 1000, 0.05);
+                this.lastTime = timestamp;
+                this.state.time += dt;
+                
+                this.update(dt);
+                this.render();
+                
+                this.frameCount++;
+                if (timestamp - this.lastFpsUpdate > 1000) {
+                    this.fps = this.frameCount;
+                    this.frameCount = 0;
+                    this.lastFpsUpdate = timestamp;
+                    document.getElementById('fpsCounter').textContent = this.fps;
+                }
+                
+                requestAnimationFrame((t) => this.gameLoop(t));
+            },
+            
+            update(dt) {
+                this.camera.x += (this.camera.targetX - this.camera.x) * 10 * dt;
+                this.camera.y += (this.camera.targetY - this.camera.y) * 10 * dt;
+                
+                const biome = this.biomes[this.state.currentBiome];
+                
+                this.state.plants = this.state.plants.filter(plant => {
+                    plant.update(dt, biome);
+                    return plant.alive;
+                });
+                
+                this.state.creatures = this.state.creatures.filter(creature => {
+                    creature.update(dt, this.state.plants);
+                    return creature.alive;
+                });
+                
+                if (this.state.plants.length > 500) {
+                    this.state.plants.sort((a, b) => a.age - b.age);
+                    this.state.plants = this.state.plants.slice(100);
+                }
+                
+                if (Math.random() < 0.002 * dt && this.state.plants.length < 500) {
+                    const x = this.camera.x + Math.random() * this.width;
+                    const y = this.worldHeight - 200 - Math.random() * 100;
+                    if (x >= 0 && x < this.worldWidth) {
+                        this.state.plants.push(new Plant(x, y, this.state.generation));
+                    }
+                }
+                
+                this.updateUI();
+            },
+            
+            render() {
+                const ctx = this.ctx;
+                
+                ctx.fillStyle = this.biomes[this.state.currentBiome].skyColor;
+                ctx.fillRect(0, 0, this.width, this.height);
+                
+                ctx.save();
+                ctx.translate(-this.camera.x, -this.camera.y);
+                
+                this.drawGround();
+                
+                this.state.waterSources.forEach(water => {
+                    if (this.isVisible(water.x, water.y, water.radius * 2)) {
+                        ctx.fillStyle = 'rgba(59, 130, 246, 0.3)';
+                        ctx.beginPath();
+                        ctx.arc(water.x, water.y, water.radius, 0, Math.PI * 2);
+                        ctx.fill();
+                        
+                        for (let i = 0; i < 3; i++) {
+                            const ripple = (this.state.time * 2 + i * 0.5) % 2;
+                            ctx.strokeStyle = `rgba(59, 130, 246, ${0.4 - ripple * 0.2})`;
+                            ctx.lineWidth = 2;
+                            ctx.beginPath();
+                            ctx.arc(water.x, water.y, water.radius * (0.8 + ripple * 0.2), 0, Math.PI * 2);
+                            ctx.stroke();
+                        }
+                    }
+                });
+                
+                this.state.plants.forEach(plant => {
+                    if (this.isVisible(plant.x, plant.y, 200)) {
+                        plant.draw(ctx);
+                    }
+                });
+                
+                this.state.creatures.forEach(creature => {
+                    if (this.isVisible(creature.x, creature.y, 100)) {
+                        creature.draw(ctx);
+                    }
+                });
+                
+                ctx.restore();
+                
+                if (this.state.showGrid) {
+                    this.drawGrid();
+                }
+                
+                this.drawMinimap();
+            },
+            
+            drawGround() {
+                const ctx = this.ctx;
+                const groundY = this.worldHeight - 200;
+                const biome = this.biomes[this.state.currentBiome];
+                
+                const gradient = ctx.createLinearGradient(0, groundY - 100, 0, this.worldHeight);
+                gradient.addColorStop(0, biome.groundColor);
+                gradient.addColorStop(1, this.darkenColor(biome.groundColor, 0.3));
+                
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, groundY, this.worldWidth, 200);
+                
+                const startX = Math.max(0, Math.floor(this.camera.x / 5) * 5);
+                const endX = Math.min(this.worldWidth, Math.ceil((this.camera.x + this.width) / 5) * 5);
+                
+                for (let x = startX; x < endX; x += 5) {
+                    const noise = Math.sin(x * 0.1) * Math.sin(x * 0.03);
+                    const height = 10 + noise * 8;
+                    const sway = Math.sin(this.state.time * 2 + x * 0.1) * 2;
+                    
+                    ctx.strokeStyle = `rgba(74, 222, 128, ${0.3 + noise * 0.2})`;
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(x, groundY);
+                    ctx.lineTo(x + sway, groundY - height);
+                    ctx.stroke();
+                }
+            },
+            
+            drawGrid() {
+                const ctx = this.ctx;
+                ctx.save();
+                ctx.translate(-this.camera.x, -this.camera.y);
+                
+                const gridSize = 100;
+                const startX = Math.floor(this.camera.x / gridSize) * gridSize;
+                const endX = this.camera.x + this.width;
+                const startY = Math.floor(this.camera.y / gridSize) * gridSize;
+                const endY = this.camera.y + this.height;
+                
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+                ctx.lineWidth = 1;
+                
+                for (let x = startX; x < endX; x += gridSize) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, startY);
+                    ctx.lineTo(x, endY);
+                    ctx.stroke();
+                }
+                
+                for (let y = startY; y < endY; y += gridSize) {
+                    ctx.beginPath();
+                    ctx.moveTo(startX, y);
+                    ctx.lineTo(endX, y);
+                    ctx.stroke();
+                }
+                
+                ctx.restore();
+            },
+            
+            drawMinimap() {
+                const miniCanvas = document.getElementById('minimapCanvas');
+                const ctx = miniCanvas.getContext('2d');
+                const w = miniCanvas.width;
+                const h = miniCanvas.height;
+                
+                ctx.fillStyle = '#0f172a';
+                ctx.fillRect(0, 0, w, h);
+                
+                const scaleX = w / this.worldWidth;
+                const scaleY = h / this.worldHeight;
+                
+                this.state.plants.forEach(plant => {
+                    ctx.fillStyle = '#10b981';
+                    ctx.fillRect(plant.x * scaleX, plant.y * scaleY, 2, 2);
+                });
+                
+                this.state.creatures.forEach(creature => {
+                    ctx.fillStyle = '#3b82f6';
+                    ctx.fillRect(creature.x * scaleX, creature.y * scaleY, 2, 2);
+                });
+                
+                ctx.strokeStyle = '#f59e0b';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(
+                    this.camera.x * scaleX,
+                    this.camera.y * scaleY,
+                    this.width * scaleX,
+                    this.height * scaleY
+                );
+            },
+            
+            isVisible(x, y, margin = 0) {
+                return x + margin > this.camera.x && 
+                       x - margin < this.camera.x + this.width &&
+                       y + margin > this.camera.y && 
+                       y - margin < this.camera.y + this.height;
+            },
+            
+            darkenColor(color, amount) {
+                const num = parseInt(color.slice(1), 16);
+                const r = Math.max(0, Math.floor((num >> 16) * (1 - amount)));
+                const g = Math.max(0, Math.floor(((num >> 8) & 0x00FF) * (1 - amount)));
+                const b = Math.max(0, Math.floor((num & 0x0000FF) * (1 - amount)));
+                return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+            },
+            
+            // Actions
+            plantSeed() {
+                const cost = 30;
+                if (this.state.coins >= cost) {
+                    this.state.mode = 'plant';
+                    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+                    document.querySelector('[data-mode="plant"]').classList.add('active');
+                    this.canvas.style.cursor = 'crosshair';
+                    this.notify('Plant Mode', 'Click anywhere to plant a seed');
+                } else {
+                    this.notify('Insufficient Funds', `Need ${cost} coins`);
+                }
+            },
+            
+            handlePlantClick(e) {
+                const cost = 30;
+                if (this.state.coins >= cost) {
+                    const worldX = e.clientX + this.camera.x;
+                    const worldY = e.clientY + this.camera.y;
+                    
+                    if (worldY > this.worldHeight - 400) {
+                        this.state.plants.push(new Plant(worldX, this.worldHeight - 200, this.state.generation));
+                        this.state.coins -= cost;
+                        this.notify('Plant Created', '+1 to ecosystem');
+                    }
+                }
+            },
+            
+            spawnCreature() {
+                const cost = 50;
+                if (this.state.coins >= cost) {
+                    const x = this.camera.x + this.width / 2 + (Math.random() - 0.5) * 300;
+                    const y = this.worldHeight - 300 - Math.random() * 200;
+                    this.state.creatures.push(new Creature(x, y));
+                    this.state.coins -= cost;
+                    this.notify('Creature Spawned', 'New life added');
+                } else {
+                    this.notify('Insufficient Funds', `Need ${cost} coins`);
+                }
+            },
+            
+            evolve() {
+                const cost = 100;
+                if (this.state.coins >= cost) {
+                    this.state.generation++;
+                    this.state.coins -= cost;
+                    
+                    this.state.plants.forEach(plant => {
+                        if (Math.random() < 0.3) {
+                            plant.evolve();
+                        }
+                    });
+                    
+                    this.notify('Evolution!', `Generation ${this.state.generation}`);
+                } else {
+                    this.notify('Insufficient Funds', `Need ${cost} coins`);
+                }
+            },
+            
+            harvest() {
+                const amount = Math.floor(this.state.biomass * 0.1);
+                this.state.coins += amount;
+                this.state.biomass *= 0.9;
+                this.notify('Harvested', `+${amount} coins`);
+            },
+            
+            changeBiome() {
+                const cost = 200;
+                if (this.state.coins >= cost) {
+                    const biomes = Object.keys(this.biomes);
+                    const current = biomes.indexOf(this.state.currentBiome);
+                    const next = biomes[(current + 1) % biomes.length];
+                    this.state.currentBiome = next;
+                    this.state.coins -= cost;
+                    this.notify('Biome Changed', this.biomes[next].name);
+                } else {
+                    this.notify('Insufficient Funds', `Need ${cost} coins`);
+                }
+            },
+            
+            addWater() {
+                const cost = 80;
+                if (this.state.coins >= cost) {
+                    this.state.waterSources.push({
+                        x: this.camera.x + this.width / 2,
+                        y: this.worldHeight - 150,
+                        radius: 60 + Math.random() * 40
+                    });
+                    this.state.coins -= cost;
+                    this.notify('Water Source Added', 'Ecosystem improved');
+                } else {
+                    this.notify('Insufficient Funds', `Need ${cost} coins`);
+                }
+            },
+            
+            addMountain() {
+                const cost = 150;
+                if (this.state.coins >= cost) {
+                    this.state.coins -= cost;
+                    this.notify('Mountain Added', 'Terrain modified');
+                } else {
+                    this.notify('Insufficient Funds', `Need ${cost} coins`);
+                }
+            },
+            
+            unlockTech(key) {
+                const tech = this.technologies[key];
+                if (!tech.unlocked && this.state.coins >= tech.cost) {
+                    tech.unlocked = true;
+                    this.state.coins -= tech.cost;
+                    this.state.technologies.add(key);
+                    document.querySelector(`[data-tech="${key}"]`).classList.add('unlocked');
+                    this.notify('Tech Unlocked', tech.name);
+                }
+            },
+            
+            toggleGrid() {
+                this.state.showGrid = !this.state.showGrid;
+                this.notify('Grid', this.state.showGrid ? 'Enabled' : 'Disabled');
+            },
+            
+            passiveIncome() {
+                const plantIncome = this.state.plants.length * 0.1;
+                const creatureIncome = this.state.creatures.length * 0.2;
+                
+                this.state.biomass += plantIncome;
+                this.state.energy += 1;
+                this.state.coins += Math.floor((plantIncome + creatureIncome) * 0.5);
+            },
+            
+            updateUI() {
+                document.getElementById('coinValue').textContent = Math.floor(this.state.coins);
+                document.getElementById('bioValue').textContent = Math.floor(this.state.biomass);
+                document.getElementById('energyValue').textContent = Math.floor(this.state.energy);
+                document.getElementById('popValue').textContent = this.state.plants.length + this.state.creatures.length;
+                
+                const uniqueSpecies = new Set(this.state.plants.map(p => p.species)).size;
+                document.getElementById('speciesValue').textContent = uniqueSpecies;
+                document.getElementById('generationValue').textContent = this.state.generation;
+                document.getElementById('ageValue').textContent = Math.floor(this.state.time);
+                
+                const biome = this.biomes[this.state.currentBiome];
+                document.getElementById('biomeValue').textContent = biome.name;
+                document.getElementById('currentBiomeName').textContent = biome.name;
+                document.getElementById('biomeGrowth').textContent = (biome.growthRate * 100).toFixed(0) + '%';
+                document.getElementById('biomeWater').textContent = (biome.waterMod * 100).toFixed(0) + '%';
+                
+                const diversity = Math.min(100, uniqueSpecies * 10);
+                document.getElementById('plantDiversity').textContent = diversity + '%';
+                document.getElementById('diversityBar').style.width = diversity + '%';
+                
+                document.getElementById('cameraPos').textContent = `X: ${Math.floor(this.camera.x)}, Y: ${Math.floor(this.camera.y)}`;
+                
+                const plantBtn = document.getElementById('plantBtn');
+                plantBtn.disabled = this.state.coins < 30;
+            },
+            
+            notify(title, body) {
+                const container = document.getElementById('notifications');
+                const notif = document.createElement('div');
+                notif.className = 'notification';
+                notif.innerHTML = `
+                    <div class="notification-title">${title}</div>
+                    <div class="notification-body">${body}</div>
+                `;
+                container.appendChild(notif);
+                
+                setTimeout(() => {
+                    notif.style.opacity = '0';
+                    setTimeout(() => notif.remove(), 300);
+                }, 4000);
+            },
+            
+            save() {
+                const data = {
+                    coins: this.state.coins,
+                    biomass: this.state.biomass,
+                    energy: this.state.energy,
+                    generation: this.state.generation,
+                    technologies: Array.from(this.state.technologies),
+                    currentBiome: this.state.currentBiome
+                };
+                localStorage.setItem('overgrownd_save', JSON.stringify(data));
+            },
+            
+            load() {
+                const saved = localStorage.getItem('overgrownd_save');
+                if (saved) {
+                    const data = JSON.parse(saved);
+                    Object.assign(this.state, data);
+                    this.state.technologies = new Set(data.technologies || []);
+                    
+                    data.technologies?.forEach(key => {
+                        this.technologies[key].unlocked = true;
+                        document.querySelector(`[data-tech="${key}"]`)?.classList.add('unlocked');
+                    });
+                }
+            }
+        };
+
+        // Plant Class
+        class Plant {
+            constructor(x, y, generation) {
+                this.x = x;
+                this.y = y;
+                this.age = 0;
+                this.growth = 0;
+                this.alive = true;
+                this.generation = generation;
+                
+                this.height = 40 + Math.random() * 120;
+                this.targetHeight = this.height;
+                this.branches = 2 + Math.floor(Math.random() * 5);
+                this.hue = 80 + Math.random() * 80;
+                this.branchAngle = 0.3 + Math.random() * 0.5;
+                this.leafSize = 4 + Math.random() * 6;
+                this.hasFlowers = Math.random() > 0.6;
+                this.windPhase = Math.random() * Math.PI * 2;
+                
+                const types = ['Broadleaf', 'Conifer', 'Fern', 'Vine', 'Succulent'];
+                this.species = types[Math.floor(Math.random() * types.length)] + '-' + generation;
+                
+                this.currentHeight = 0;
+            }
+            
+            update(dt, biome) {
+                if (!this.alive) return;
+                
+                this.age += dt;
+                
+                if (this.currentHeight < this.targetHeight) {
+                    const growthRate = 0.5 * biome.growthRate;
+                    this.currentHeight += (this.targetHeight - this.currentHeight) * growthRate * dt;
+                }
+                
+                this.growth = Math.min(1, this.currentHeight / this.targetHeight);
+                
+                if (this.age > 120 && Math.random() < 0.001) {
+                    this.alive = false;
+                }
+            }
+            
+            draw(ctx) {
+                if (!this.alive || this.growth < 0.01) return;
+                
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                
+                const sway = Math.sin(Game.state.time * 2 + this.windPhase) * 3 * this.growth;
+                ctx.rotate(sway * 0.01);
+                
+                const gradient = ctx.createLinearGradient(0, 0, 0, -this.currentHeight);
+                gradient.addColorStop(0, `hsl(${this.hue - 20}, 50%, 25%)`);
+                gradient.addColorStop(1, `hsl(${this.hue}, 60%, 40%)`);
+                
+                ctx.strokeStyle = gradient;
+                ctx.lineWidth = 3 + this.growth * 4;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(sway * 0.3, -this.currentHeight * this.growth);
+                ctx.stroke();
+                
+                if (this.growth > 0.3) {
+                    for (let i = 0; i < this.branches; i++) {
+                        const branchY = -this.currentHeight * this.growth * (0.3 + i * 0.15);
+                        const side = i % 2 === 0 ? 1 : -1;
+                        const angle = this.branchAngle * side;
+                        const length = this.height * 0.4 * this.growth;
+                        
+                        ctx.save();
+                        ctx.translate(sway * 0.3, branchY);
+                        ctx.rotate(angle);
+                        
+                        ctx.strokeStyle = `hsl(${this.hue}, 50%, 35%)`;
+                        ctx.lineWidth = 2 * this.growth;
+                        ctx.beginPath();
+                        ctx.moveTo(0, 0);
+                        ctx.lineTo(length, 0);
+                        ctx.stroke();
+                        
+                        for (let j = 0; j < 3; j++) {
+                            const leafX = length * (0.4 + j * 0.2);
+                            const leafY = Math.sin(Game.state.time + j) * 2;
+                            
+                            ctx.fillStyle = `hsl(${this.hue + 10}, 70%, ${45 + j * 5}%)`;
+                            ctx.beginPath();
+                            ctx.ellipse(leafX, leafY, this.leafSize * this.growth, this.leafSize * 0.6 * this.growth, 0, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                        
+                        if (this.hasFlowers && this.growth > 0.7) {
+                            ctx.fillStyle = `hsl(${(this.hue + 180) % 360}, 80%, 60%)`;
+                            ctx.beginPath();
+                            ctx.arc(length, 0, 3 * this.growth, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                        
+                        ctx.restore();
+                    }
+                }
+                
+                ctx.restore();
+            }
+            
+            evolve() {
+                this.generation++;
+                this.targetHeight *= 1.1;
+                this.branches = Math.min(8, this.branches + 1);
+                this.hue = (this.hue + Math.random() * 20 - 10) % 360;
+            }
+        }
+
+        // Creature Class
+        class Creature {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.vx = 0;
+                this.vy = 0;
+                this.alive = true;
+                this.age = 0;
+                
+                this.size = 8 + Math.random() * 12;
+                this.hue = Math.random() * 360;
+                this.segments = 3 + Math.floor(Math.random() * 3);
+                this.speed = 50 + Math.random() * 100;
+                this.wingSpan = this.size * 2;
+                
+                this.targetX = x;
+                this.targetY = y;
+                this.behaviorTimer = 0;
+                this.behavior = 'wander';
+                
+                this.pickNewTarget();
+            }
+            
+            pickNewTarget() {
+                this.targetX = this.x + (Math.random() - 0.5) * 500;
+                this.targetY = this.y + (Math.random() - 0.5) * 300;
+                
+                this.targetX = Math.max(100, Math.min(Game.worldWidth - 100, this.targetX));
+                this.targetY = Math.max(100, Math.min(Game.worldHeight - 300, this.targetY));
+            }
+            
+            update(dt, plants) {
+                if (!this.alive) return;
+                
+                this.age += dt;
+                this.behaviorTimer += dt;
+                
+                if (this.behaviorTimer > 5) {
+                    this.behaviorTimer = 0;
+                    this.behavior = Math.random() > 0.3 ? 'wander' : 'rest';
+                    if (this.behavior === 'wander') {
+                        this.pickNewTarget();
+                    }
+                }
+                
+                if (this.behavior === 'wander') {
+                    const dx = this.targetX - this.x;
+                    const dy = this.targetY - this.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (dist < 20) {
+                        this.pickNewTarget();
+                    } else {
+                        const accel = this.speed * 3;
+                        this.vx += (dx / dist * accel - this.vx * 5) * dt;
+                        this.vy += (dy / dist * accel - this.vy * 5) * dt;
+                    }
+                } else {
+                    this.vx *= Math.pow(0.1, dt);
+                    this.vy *= Math.pow(0.1, dt);
+                }
+                
+                this.x += this.vx * dt;
+                this.y += this.vy * dt;
+                
+                this.x = Math.max(50, Math.min(Game.worldWidth - 50, this.x));
+                this.y = Math.max(50, Math.min(Game.worldHeight - 250, this.y));
+                
+                plants.forEach(plant => {
+                    const dist = Math.hypot(plant.x - this.x, plant.y - this.y);
+                    if (dist < 50 && Math.random() < 0.01) {
+                        Game.state.biomass += 0.5;
+                    }
+                });
+                
+                if (this.age > 60 && Math.random() < 0.002) {
+                    this.alive = false;
+                }
+            }
+            
+            draw(ctx) {
+                if (!this.alive) return;
+                
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                
+                const angle = Math.atan2(this.vy, this.vx);
+                ctx.rotate(angle);
+                
+                for (let i = 0; i < this.segments; i++) {
+                    const segX = -i * this.size * 0.8;
+                    const wobble = Math.sin(Game.state.time * 8 + i) * 2;
+                    const segSize = this.size * (1 - i * 0.15);
+                    
+                    ctx.fillStyle = `hsl(${this.hue}, 60%, ${50 - i * 8}%)`;
+                    ctx.beginPath();
+                    ctx.arc(segX, wobble, segSize, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                const wingFlap = Math.sin(Game.state.time * 10) * 0.4;
+                ctx.strokeStyle = `hsla(${this.hue}, 50%, 60%, 0.6)`;
+                ctx.lineWidth = 2;
+                ctx.fillStyle = `hsla(${this.hue}, 50%, 60%, 0.2)`;
+                
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.quadraticCurveTo(
+                    -this.wingSpan * 0.5, -this.wingSpan * (1 + wingFlap),
+                    -this.wingSpan, -this.size
+                );
+                ctx.lineTo(0, 0);
+                ctx.fill();
+                ctx.stroke();
+                
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.quadraticCurveTo(
+                    -this.wingSpan * 0.5, this.wingSpan * (1 + wingFlap),
+                    -this.wingSpan, this.size
+                );
+                ctx.lineTo(0, 0);
+                ctx.fill();
+                ctx.stroke();
+                
+                ctx.fillStyle = '#000';
+                ctx.beginPath();
+                ctx.arc(this.size * 0.3, -this.size * 0.3, 2, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.restore();
+            }
+        }
+
+        // Start Game
+        window.addEventListener('load', () => {
+            let progress = 0;
+            const loadingInterval = setInterval(() => {
+                progress += Math.random() * 30;
+                if (progress >= 100) {
+                    progress = 100;
+                    clearInterval(loadingInterval);
+                    setTimeout(() => Game.init(), 500);
+                }
+                document.getElementById('loadingProgress').style.width = progress + '%';
+            }, 100);
+        });
+    </script>
+</body>
+</html>
